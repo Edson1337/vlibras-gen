@@ -1,0 +1,11 @@
+[project]
+name = "libras-animations-generator"
+version = "0.1.0"
+description = "A Docker-based automation to generate LIBRAS (Brazilian Sign Language) videos from text using the VLibras stack locally, with no dependency on external servers."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "pyjwt>=2.11.0",
+    "python-decouple>=3.8",
+    "requests>=2.32.5",
+]
