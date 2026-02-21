@@ -190,3 +190,9 @@ This project is built on top of [VLibras](https://vlibras.gov.br), a free and op
 ### License compliance
 
 `renderer.py` is a modified version of the original VLibras renderer, covered by LGPLv3. The only modification made is changing the output queue from `libras` to `libras-bridge` to prevent unintended round-robin message delivery. This modification is distributed under the same LGPLv3 terms, in compliance with the license requirements.
+
+## License
+
+This project is licensed under the MIT License — see [LICENSE](LICENSE) for details.
+
+**Exception:** `renderer.py` is derived from VLibras and is licensed under [LGPLv3](https://www.gnu.org/licenses/lgpl-3.0.html).
