@@ -1,0 +1,11 @@
+{
+  "users": [
+    {"name": "vlibras", "password": "vlibras", "tags": "administrator"},
+    {"name": "guest",   "password": "guest",   "tags": ""}
+  ],
+  "vhosts": [{"name": "/"}],
+  "permissions": [
+    {"user": "vlibras", "vhost": "/", "configure": ".*", "write": ".*", "read": ".*"},
+    {"user": "guest",   "vhost": "/", "configure": ".*", "write": ".*", "read": ".*"}
+  ]
+}

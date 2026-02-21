@@ -1,0 +1,202 @@
+services:
+  mongo:
+    image: mongo:6
+    container_name: vlibras_mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    restart: unless-stopped
+
+  rabbit:
+    image: rabbitmq:3-management
+    container_name: vlibras_rabbit
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: vlibras
+      RABBITMQ_DEFAULT_PASS: vlibras
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "-rabbit loopback_users []"
+    volumes:
+      - rabbit_data:/var/lib/rabbitmq
+      - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      - ./rabbitmq-definitions.json:/etc/rabbitmq/definitions.json:ro
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: vlibras_redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:17-alpine
+    container_name: vlibras_postgres
+    environment:
+      POSTGRES_DB: vlibras
+      POSTGRES_USER: vlibrasuser
+      POSTGRES_PASSWORD: "vlibraspass"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vlibrasuser -d vlibras"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  video_api:
+    image: vlibras/vlibras-video-api:3.2.1
+    container_name: vlibras_video_api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbit:
+        condition: service_healthy
+      mongo:
+        condition: service_started
+      redis:
+        condition: service_started
+    ports:
+      - "8080:3003"
+    volumes:
+      - vlibras_uploads:/app/uploads
+    environment:
+      JWT_SECRET: "6BrmHrRvuss7RzXrvbFkO2MfpXzJB4dYa1XPU4GYLGMiiarRbGSRf615zN6YET9d"
+      SECRET_OR_KEY: "6BrmHrRvuss7RzXrvbFkO2MfpXzJB4dYa1XPU4GYLGMiiarRbGSRf615zN6YET9d"
+      SECRET_KEY: "6BrmHrRvuss7RzXrvbFkO2MfpXzJB4dYa1XPU4GYLGMiiarRbGSRf615zN6YET9d"
+      JWT_KEY: "6BrmHrRvuss7RzXrvbFkO2MfpXzJB4dYa1XPU4GYLGMiiarRbGSRf615zN6YET9d"
+      DB_HOST: mongo
+      DB_PORT: "27017"
+      AMQP_PROTOCOL: amqp
+      AMQP_HOST: rabbit
+      AMQP_PORT: "5672"
+      AMQP_USER: vlibras
+      AMQP_PASS: vlibras
+      CORE_QUEUE: core
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      REDIS_URL: "redis://redis:6379"
+      CACHE_HOST: redis
+      CACHE_PORT: "6379"
+      CACHE_URL: "redis://redis:6379"
+      DATABASE_HOST: postgres
+      DATABASE_PORT: "5432"
+      DATABASE_NAME: vlibras
+      DATABASE_USER: vlibrasuser
+      DATABASE_PASSWORD: "vlibraspass"
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: vlibras
+      POSTGRES_USER: vlibrasuser
+      POSTGRES_PASSWORD: "vlibraspass"
+      PATH_UPLOAD: /app/uploads
+      VLIBRAS_VIDEO_IP: "0.0.0.0"
+      VLIBRAS_VIDEO_PORT: "8080"
+    restart: unless-stopped
+
+  # Aguarda as migrations do video_api e cria o usuário dev no PostgreSQL
+  db_init:
+    image: postgres:17-alpine
+    container_name: vlibras_db_init
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGDATABASE: vlibras
+      PGUSER: vlibrasuser
+      PGPASSWORD: "vlibraspass"
+    entrypoint: >
+      sh -c "
+        echo 'Aguardando migrations do video_api (tabela users)...';
+        until psql -c 'SELECT 1 FROM users LIMIT 1' > /dev/null 2>&1; do
+          sleep 3;
+        done;
+        echo 'Inserindo usuário dev...';
+        psql -c \"INSERT INTO users (name, cpf, email, \\\"createdAt\\\", \\\"updatedAt\\\") VALUES ('Dev Local', '00000000000', 'dev@local.dev', NOW(), NOW()) ON CONFLICT (cpf) DO NOTHING;\";
+        echo 'Pronto.';
+      "
+    restart: "no"
+
+  # Bridge: converte mensagens do formato novo (core) para o antigo (requests)
+  # e atualiza o PostgreSQL quando o vídeo é gerado (libras-bridge)
+  bridge:
+    build:
+      context: .
+      dockerfile: Dockerfile.bridge
+    container_name: vlibras_bridge
+    depends_on:
+      rabbit:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    volumes:
+      - vlibras_uploads:/app/uploads
+      - vlibras_storage:/storage
+    environment:
+      AMQP_HOST: rabbit
+      AMQP_PORT: "5672"
+      AMQP_USER: vlibras
+      AMQP_PASS: vlibras
+      CORE_QUEUE: core
+      REQUESTS_QUEUE: requests
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: vlibras
+      POSTGRES_USER: vlibrasuser
+      POSTGRES_PASSWORD: "vlibraspass"
+      PATH_UPLOAD: /app/uploads
+      PATH_STORAGE: /storage/libras
+      BRIDGE_HOST: bridge
+      BRIDGE_PORT: "8000"
+    restart: unless-stopped
+
+  # Worker antigo: consome "requests" e gera os vídeos LIBRAS
+  # renderer.py sobrescrito para publicar em "libras-bridge" (exclusivo do bridge)
+  # em vez de "libras" (compartilhado com mixer), evitando round-robin indevido
+  video_worker:
+    image: vlibras/video_container:latest
+    container_name: vlibras_video_worker
+    depends_on:
+      rabbit:
+        condition: service_healthy
+      mongo:
+        condition: service_started
+      redis:
+        condition: service_started
+      bridge:
+        condition: service_started
+    volumes:
+      - vlibras_uploads:/app/uploads
+      - vlibras_storage:/storage
+      - ./renderer.py:/home/vlibras/renderer.py:ro
+    environment:
+      AMQP_HOST: rabbit
+      AMQP_PORT: "5672"
+      AMQP_USER: guest
+      AMQP_PASS: guest
+      CORE_QUEUE: core
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      DB_HOST: mongo
+      DB_PORT: "27017"
+      PATH_UPLOAD: /app/uploads
+    restart: unless-stopped
+
+volumes:
+  mongo_data:
+  rabbit_data:
+  postgres_data:
+  vlibras_uploads:
+  vlibras_storage:
