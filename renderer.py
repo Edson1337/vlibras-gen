@@ -1,5 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+#
+# renderer.py — derived from VLibras (https://github.com/spbgovbr-vlibras)
+# Original work © LAVID/UFPB, licensed under LGPLv3
+# Modifications: changed output queue from "libras" to "libras-bridge"
+#   to prevent round-robin with mixer.py and ensure exclusive consumption
+#   by the bridge service.
 
 import json
 import logging

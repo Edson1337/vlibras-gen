@@ -178,3 +178,15 @@ docker exec vlibras_rabbit rabbitmqctl list_permissions -p /
 docker exec vlibras_rabbit rabbitmqctl set_permissions -p / guest ".*" ".*" ".*"
 docker restart vlibras_video_worker
 ```
+
+## Acknowledgements
+
+This project is built on top of [VLibras](https://vlibras.gov.br), a free and open suite developed by [LAVID/UFPB](http://lavid.ufpb.br) in partnership with the Brazilian government to promote digital accessibility for the deaf community in Brazil.
+
+- VLibras portal: https://vlibras.gov.br
+- Source code: https://github.com/spbgovbr-vlibras
+- License: [LGPLv3](https://www.gnu.org/licenses/lgpl-3.0.html)
+
+### License compliance
+
+`renderer.py` is a modified version of the original VLibras renderer, covered by LGPLv3. The only modification made is changing the output queue from `libras` to `libras-bridge` to prevent unintended round-robin message delivery. This modification is distributed under the same LGPLv3 terms, in compliance with the license requirements.
