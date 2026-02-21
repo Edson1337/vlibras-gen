@@ -105,28 +105,28 @@ Paste the token into `.env` as `VLIBRAS_VIDEO_TOKEN`.
 
 ```bash
 # Single phrase
-uv run vlibras_gen.py "Hello, how are you?"
+uv run vlibras_gen.py "Olá, tudo bem?"
 
 # Multiple phrases at once
-uv run vlibras_gen.py "Hello" "Good morning" "I want to check my bill"
+uv run vlibras_gen.py "Olá" "Bom dia" "Quero consultar a minha fatura"
 
 # From a .txt file (one phrase per line)
 uv run vlibras_gen.py phrases.txt
 
 # Mix of phrases and files
-uv run vlibras_gen.py "Hello" phrases.txt "Goodbye"
+uv run vlibras_gen.py "Olá" phrases.txt "Até logo"
 
 # Choose avatar (icaro or hosana)
-uv run vlibras_gen.py "Good morning" --avatar hosana
+uv run vlibras_gen.py "Bom dia" --avatar hosana
 ```
 
 The `phrases.txt` format:
 ```
 # comments are ignored
-Hello, how are you?
-Good morning
+Olá, tudo bem?
+Bom dia
 
-I want to check my bill
+Quero consultar a minha fatura
 # blank lines are also ignored
 ```
 
