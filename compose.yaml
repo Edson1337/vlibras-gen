@@ -184,8 +184,8 @@ services:
     environment:
       AMQP_HOST: rabbit
       AMQP_PORT: "5672"
-      AMQP_USER: guest
-      AMQP_PASS: guest
+      AMQP_USER: vlibras
+      AMQP_PASS: vlibras
       CORE_QUEUE: core
       REDIS_HOST: redis
       REDIS_PORT: "6379"
