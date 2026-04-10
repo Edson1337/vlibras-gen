@@ -11,6 +11,7 @@ from typing import Iterable, Dict, Any
 
 import requests
 from requests import Response
+from requests import HTTPError
 
 from config import AppConfig
 
@@ -97,18 +98,33 @@ class VLibrasClient:
 
     # -------- Tradução (texto -> glosa) --------
     def translate_to_gloss(self, text: str) -> str:
+        if self.cfg.translate_mode == "passthrough":
+            log.info("Tradução remota desativada (modo passthrough); usando texto original.")
+            return text
+
         url = self._url(self.cfg.translate_base_url, TRANSLATE_PATH)
-        r = self._req(
-            "POST",
-            url,
-            headers={"Content-Type": "application/json; charset=utf-8"},
-            data=json.dumps({"text": text}, ensure_ascii=False),
-        )
-        r.raise_for_status()
-        gloss = r.text.strip()
-        if not gloss:
-            raise RuntimeError("Glosa vazia retornada por /translate.")
-        return gloss
+        try:
+            r = self._req(
+                "POST",
+                url,
+                headers={"Content-Type": "application/json; charset=utf-8"},
+                data=json.dumps({"text": text}, ensure_ascii=False),
+            )
+            r.raise_for_status()
+            gloss = r.text.strip()
+            if not gloss:
+                raise RuntimeError("Glosa vazia retornada por /translate.")
+            return gloss
+        except HTTPError as e:
+            status = e.response.status_code if e.response is not None else None
+            can_fallback = self.cfg.translate_mode == "auto" and (status in {401, 403, 404, 429} or (status is not None and status >= 500))
+            if can_fallback:
+                log.warning(
+                    "Falha na tradução remota (%s). Aplicando fallback para texto original (modo auto).",
+                    status,
+                )
+                return text
+            raise
 
     # -------- Submissão (glosa -> uid) --------
     def request_video(self, gloss: str, avatar: str = AVATAR_DEFAULT) -> str:
@@ -265,6 +281,15 @@ def main() -> int:
         help="Uma ou mais frases em PT-BR e/ou arquivos .txt (1 frase por linha)",
     )
     parser.add_argument(
+        "--translate-mode",
+        choices=["auto", "remote", "passthrough"],
+        default=None,
+        help=(
+            "Modo de tradução: auto=tenta remoto e faz fallback, "
+            "remote=exige API remota, passthrough=não chama API remota"
+        ),
+    )
+    parser.add_argument(
         "--avatar",
         default=AVATAR_DEFAULT,
         choices=["icaro", "hosana"],
@@ -273,6 +298,20 @@ def main() -> int:
     args = parser.parse_args()
 
     cfg = AppConfig.load()
+    if args.translate_mode:
+        cfg = AppConfig(
+            log_level=cfg.log_level,
+            translate_base_url=cfg.translate_base_url,
+            translate_mode=args.translate_mode,
+            video_base_url=cfg.video_base_url,
+            video_token=cfg.video_token,
+            timeout_s=cfg.timeout_s,
+            poll_interval_s=cfg.poll_interval_s,
+            poll_timeout_s=cfg.poll_timeout_s,
+            uf=cfg.uf,
+            target=cfg.target,
+            out_dir=cfg.out_dir,
+        )
     setup_logging(cfg.log_level)
 
     client = VLibrasClient(cfg)

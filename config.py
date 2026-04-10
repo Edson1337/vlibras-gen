@@ -12,6 +12,7 @@ class AppConfig:
     log_level: str
 
     translate_base_url: str
+    translate_mode: str
     video_base_url: str
     video_token: Optional[str]  # JWT estático; dispensa /auth/temp_login
 
@@ -33,6 +34,7 @@ class AppConfig:
                 "VLIBRAS_TRANSLATE_BASE_URL",
                 default="https://traducao2.vlibras.gov.br",
             ),
+            translate_mode=config("VLIBRAS_TRANSLATE_MODE", default="auto").lower().strip(),
             video_base_url=config("VLIBRAS_VIDEO_BASE_URL", default=""),
             video_token=config("VLIBRAS_VIDEO_TOKEN", default=None),
 
@@ -51,6 +53,9 @@ class AppConfig:
 
         if cfg.video_base_url and not cfg.video_base_url.startswith(("http://", "https://")):
             raise ValueError("VLIBRAS_VIDEO_BASE_URL deve começar com http:// ou https://")
+
+        if cfg.translate_mode not in {"auto", "remote", "passthrough"}:
+            raise ValueError("VLIBRAS_TRANSLATE_MODE deve ser: auto, remote ou passthrough")
 
         return cfg
         

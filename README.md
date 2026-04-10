@@ -74,10 +74,17 @@ cp .env.example .env
 Required variables:
 
 ```env
-VLIBRAS_API_BASE_URL=http://localhost:8080
+VLIBRAS_VIDEO_BASE_URL=http://localhost:8080
 VLIBRAS_VIDEO_TOKEN=<JWT token generated below>
-VLIBRAS_TRANSLATE_URL=https://vlibras.gov.br/api/translate
+VLIBRAS_TRANSLATE_BASE_URL=https://traducao2.vlibras.gov.br
+VLIBRAS_TRANSLATE_MODE=auto
 ```
+
+Translation modes:
+
+- `auto` (default): tries remote translation and falls back to local passthrough when remote endpoint is unavailable (403/429/5xx).
+- `remote`: requires remote translation to succeed.
+- `passthrough`: skips remote translation and sends source text directly in `.srt`.
 
 ## Starting the Services
 
@@ -118,6 +125,9 @@ uv run vlibras_gen.py "Olá" phrases.txt "Até logo"
 
 # Choose avatar (icaro or hosana)
 uv run vlibras_gen.py "Bom dia" --avatar hosana
+
+# Force passthrough mode (no remote translation)
+uv run vlibras_gen.py "Olá, tudo bem?" --translate-mode passthrough
 ```
 
 The `phrases.txt` format:
